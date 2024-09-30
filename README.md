@@ -1,6 +1,6 @@
 # Kafka-Based CPU Temperature Streaming
 
-This project demonstrates a complete data streaming pipeline that reads real-time CPU temperature data from three devices—a Lenovo laptop, a Dell laptop, and a wireless router—using a built-in streaming service developed by Fernando Abreu.
+This project demonstrates a complete data streaming pipeline that reads real-time CPU temperature data from three devices—a Lenovo laptop, a Dell laptop, and a wireless router—using a built-in streaming service developed by [Fernando Abreu](https://github.com/nandoabreu).
 
 The streaming data is processed using **Apache Kafka** and **Apache Spark Streaming**. The pipeline writes the processed data to **PostgreSQL**, which is then visualized using **Grafana** for real-time dashboard insights.
 
