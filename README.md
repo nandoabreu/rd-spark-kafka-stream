@@ -19,7 +19,9 @@ The data comes from a custom streaming service that captures CPU temperature met
 After processing, the transformed data is written into a **PostgreSQL** database for persistence.
 
 ### Visualization:
-Finally, **Grafana** is used to create a real-time dashboard that visualizes the CPU temperature data, offering insights into the performance of the devices over time. Grafana pulls the data directly from PostgreSQL to generate charts and graphs for better readability.
+In this project, **Grafana** is utilized to create a dynamic dashboard that visualizes the CPU temperature data, providing valuable insights into the performance of the devices over time. The dashboard pulls data directly from PostgreSQL, enabling the generation of informative charts and graphs that enhance readability and interpretation of the data.
+
+To give you a glimpse of the dashboard’s layout and functionality, a snapshot link is available [here](https://snapshots.raintank.io/dashboard/snapshot/7g2rBArUuEgBcEynMROOmekywUPuCiqJ). Please note that this snapshot does not reflect live data due to privacy constraints associated with the database connection. However, it effectively showcases the current configuration and design of the dashboard, demonstrating how the CPU temperature metrics are visualized.
 
 ## Process Flow
 
