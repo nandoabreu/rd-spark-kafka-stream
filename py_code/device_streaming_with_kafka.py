@@ -5,10 +5,9 @@ from pyspark.sql.types import *
 import json
 
 
-
 class Streaming_ETL:
 
-    def __init__(self, config_file='config.json'):
+    def __init__(self, config_file):
         
         with open(config_file, 'r') as f:
             config = json.load(f)
@@ -28,44 +27,90 @@ class Streaming_ETL:
 
 
     def Extract(self):
-        #Read kafka stream
-        df = self.spark.readStream\
+        #Read Kafka Stream and extract data schema
+        input_df = self.spark.readStream\
                 .format("kafka")\
                 .option("kafka.bootstrap.servers", self.kafka_information['host'])\
                 .option("subscribe", self.kafka_information['topic'])\
                 .load()
         
-        return df
+        return input_df
     
-    def Transform(self, df):
-        #Set schema to transform incoming data (previously checked in write in console mode)
-        schema = StructType([
-                    StructField("device_host", StringType(), True),
-                    StructField("queried_at", StringType(), True),
-                    StructField("cpu_temperature", FloatType(), True),
-                    StructField("gpu_temperature", FloatType(), True),
-                                
-        ])
-        #Select key and values columns
-        df = df.select(
-            F.col("key").cast("string").alias("key"),  # Access to key message
-            F.from_json(F.col("value").cast("string"), schema=schema
-            ).alias("json_data") #Access to json content
-            
+    
+    def Process(self, input_df):
+
+        #Select json values to further processing and normalization 
+        processed_df = input_df.select(
+            F.col("key").cast("string").alias("key"),
+            F.col("value").cast("string").alias("json_value")
             )
         
-        #Tranform json values from 'values'column into dataframe elements        
-        df_final = df.select(
-            "key",
-            "json_data.device_host",
-            F.to_timestamp(F.expr("substring(json_data.queried_at, 1, 16)"), "yyyy-MM-dd HH:mm").alias("queried_at"), #Set appropriate timestamp
-            "json_data.cpu_temperature",
-            "json_data.gpu_temperature",
-        
-        )
+        processed_df = processed_df.fillna(0)
 
-        return df_final 
+        return processed_df
+
+   
+    def Transform_erreduarte_device(self, processed_df):
+        
+        #Select and normalize data from device1 = erreduarte      
+        transformed_df_key_1 = processed_df.select(
+                                "key",
+                                F.expr("get_json_object(json_value, '$.device')").cast("string").alias("device"),
+                                F.expr("get_json_object(json_value, '$.collected_at')").cast("timestamp").alias("collected_at"),
+                                F.expr("get_json_object(json_value, '$.cpu.thermal_zones[0]')").cast("float").alias("thermal_zones_0"),
+                                F.expr("get_json_object(json_value, '$.cpu.thermal_zones[1]')").cast("float").alias("thermal_zones_1"),
+                                F.expr("get_json_object(json_value, '$.cpu.thermal_zones[2]')").cast("float").alias("thermal_zones_2"),
+                                F.expr("get_json_object(json_value, '$.cpu.thermal_zones[3]')").cast("float").alias("thermal_zones_3"),
+                                F.expr("get_json_object(json_value, '$.cpu.thermal_zones[4]')").cast("float").alias("thermal_zones_4"),
+                                F.expr("get_json_object(json_value, '$.cpu.thermal_zones[5]')").cast("float").alias("thermal_zones_5"),
+                                F.expr("get_json_object(json_value, '$.gpu.nvidia')").cast("float").alias("gpu_temp")
+                                ).where("key == 'erreduarte'")
+        
+        #Apply aggregations
+        df_erreduarte = transformed_df_key_1.select(
+                                F.col("key"),
+                                F.col("device"),
+                                F.col("collected_at"),
+                                ((F.col("thermal_zones_0") + F.col("thermal_zones_1") + F.col("thermal_zones_2") + F.col("thermal_zones_3") + F.col("thermal_zones_4") + 
+                                F.col("thermal_zones_5"))/6).alias("cpu_temp"),
+                                F.col("gpu_temp")
+                    )
+
+        return df_erreduarte
     
+    
+    def Transform_3tplap_device(self, processed_df):
+
+        #Select and normalize data from device2 = 3tplap
+        transformed_df_key_2 = processed_df.select(
+                                "key",
+                                F.expr("get_json_object(json_value, '$.device')").cast("string").alias("device"),
+                                F.expr("get_json_object(json_value, '$.collected_at')").cast("timestamp").alias("collected_at"),
+                                F.expr("get_json_object(json_value, '$.cpu.sensors.Tctl')").cast("float").alias("cpu_0"),
+                                F.expr("get_json_object(json_value, '$.cpu.sensors.CPU')").cast("float").alias("cpu_1"),
+                                F.expr("get_json_object(json_value, '$.gpu.sensors.GPU')").cast("float").alias("GPU_0"),
+                                F.expr("get_json_object(json_value, '$.gpu.sensors.edge')").cast("float").alias("GPU_edge")
+                                ).where("key == '3tplap'")
+        #Apply aggregations
+        df_3tplap = transformed_df_key_2.select(
+                                F.col("key"),
+                                F.col("device"),
+                                F.col("collected_at"),
+                                ((F.col("cpu_0") + F.col("cpu_1"))/2).alias("cpu_temp"),
+                                ((F.col("GPU_0") + F.col("GPU_edge"))/2).alias("gpu_temp")
+                                )
+        return df_3tplap
+    
+    
+    
+    def merge_data(self, df_erreduarte, df_3tplap):
+
+        #Merge both normalized DFs into a single one
+        merged_df = df_erreduarte.union(df_3tplap)
+
+        return merged_df
+
+
     
        
     def write_to_postgres(self, batch_df, batch_id):
@@ -83,11 +128,14 @@ class Streaming_ETL:
 
     def start_streaming(self):
 
-        df = self.Extract()
-        df_final = self.Transform(df)
+        input_df = self.Extract()
+        processed_df = self.Process(input_df)
+        df_erreduarte = self.Transform_erreduarte_device(processed_df)
+        df_3tplap = self.Transform_3tplap_device(processed_df)
+        merged_df = self.merge_data(df_erreduarte, df_3tplap)
 
         #Write transformed dataframe (df_final) to Postgres   
-        streamingQuery = df_final.writeStream\
+        streamingQuery = merged_df.writeStream\
                 .foreachBatch(self.write_to_postgres)\
                 .outputMode("append")\
                 .start()
@@ -96,5 +144,5 @@ class Streaming_ETL:
 
 
 if __name__ == "__main__":
-    process_data = Streaming_ETL()
+    process_data = Streaming_ETL(config_file="/path/to/config.json")
     process_data.start_streaming()
