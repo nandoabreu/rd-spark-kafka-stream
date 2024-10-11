@@ -6,6 +6,10 @@ The streaming data is processed using **Apache Kafka** and **Apache Spark Stream
 
 ## Project Overview
 
+### Config.json
+A configuration file with keys and secrets is required to access resources such as Kafka, Spark and Postgres. The template used can be found here: ![Config.json](py_code/config.json)
+
+
 ### Data Source:
 The data comes from a custom streaming service that captures CPU temperature metrics from three devices. These temperature readings are continuously streamed and published to Kafka topics.
 
