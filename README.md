@@ -55,3 +55,16 @@ Or at the snapshot here presented.
 2. **Transform**: Spark Streaming processes and cleans the incoming data.
 3. **Load**: The transformed data is stored in PostgreSQL.
 4. **Visualize**: Grafana generates real-time visual dashboards from the stored data.
+
+## Local install
+
+This App handles the data flow between Kafka and Spark, between Spark and PostgreSQL,
+and between PostgreSQL and Grafana. To enable and run this App, Python requirements must be installed
+and connections must be set (see [config.json](#configjson) in this document).
+
+It is recommended to use a Python virtual environment in the local system. The following 
+Makefile command can ease setting the local environment:
+
+```shell
+make env-setup
+```
