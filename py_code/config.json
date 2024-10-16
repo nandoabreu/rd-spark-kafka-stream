@@ -1,14 +1,18 @@
-{ 
-    "spark_session_info":   {"postgres_jars_path": "/path/to/postgresql-42.7.2.jar",
-                              "jars_package": "org.apache.spark:spark-sql-kafka-0-10_2.12:3.4.0"},
-    
-    "kafka_information":    {"host": "localhost:9092", 
-                            "topic": "telemetry"},
-    
-    "database_info":        {"db_url": "jdbc:postgresql://localhost:5432/database_name",
-                            "table": "public.sensor_data",
-                            "user": "user_name",
-                            "password": "password",
-                            "driver": "org.postgresql.Driver",
-                            "mode": "append"}    
+{
+  "kafka_information": {
+    "host": "localhost:9092",
+    "topic": "telemetry"
+  },
+  "spark_session_info": {
+    "postgres_jars_path": "/path/to/postgresql-42.7.2.jar",
+    "jars_package": "org.apache.spark:spark-sql-kafka-0-10_2.12:3.4.0"
+  },
+  "database_info": {
+    "db_url": "jdbc:postgresql://localhost:5432/database_name",
+    "table": "public.sensor_data",
+    "user": "user_name",
+    "password": "password",
+    "driver": "org.postgresql.Driver",
+    "mode": "append"
+  }
 }
