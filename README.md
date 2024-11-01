@@ -75,3 +75,12 @@ Makefile command can set the local environment:
 ```shell
 make env-setup
 ```
+
+## Run the pipeline
+
+To start consuming and storing data, activate the env and run the script.
+The following Makefile command will make that happen:
+
+```shell
+make start-pipeline
+```

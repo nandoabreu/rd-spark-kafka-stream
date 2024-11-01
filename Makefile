@@ -18,3 +18,7 @@ env-info:
 env-setup:
 	@python -m venv virtualenv
 	source virtualenv/bin/activate && python -m pip install -r requirements.txt
+
+
+start-pipeline:
+	source virtualenv/bin/activate && python py_code/device_streaming_with_kafka.py
