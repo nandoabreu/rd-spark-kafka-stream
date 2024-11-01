@@ -57,6 +57,13 @@ class Streaming_ETL:
             F.from_json(
                 F.expr("get_json_object(json_value, '$.cpu.sensors')"), 'map<string,float>'
             ).alias('cpu_any'),
+
+            # Extract valid GPU temperatures
+            F.expr("get_json_object(json_value, '$.gpu.nvidia')").cast('float').alias('gpu_nvidia'),
+            F.expr("get_json_object(json_value, '$.gpu.sensors.edge')").cast('float').alias('gpu_edge'),
+            F.from_json(
+                F.expr("get_json_object(json_value, '$.gpu.sensors')"), 'map<string,float>'
+            ).alias('gpu_any'),
         )
 
         # Fetch first valid CPU temperature
@@ -69,15 +76,22 @@ class Streaming_ETL:
             F.when(F.col('cpu_any').isNotNull(), F.expr('element_at(map_values(cpu_any), 1)')),
         ))
 
+        # Fetch first valid GPU temperature
+        transformed = transformed.withColumn('gpu_value', F.coalesce(
+            F.when(F.col('gpu_nvidia').isNotNull(), F.col('gpu_nvidia')),
+            F.when(F.col('gpu_edge').isNotNull(), F.col('gpu_edge')),
+            F.when(F.col('gpu_any').isNotNull(), F.expr('element_at(map_values(gpu_any), 1)')),
+        ))
+
         return transformed.select(
             F.col('key'),
             F.col('device'),
             F.col('collected_at'),
             F.col('cpu_value').alias('cpu_temp'),
-            # F.lit(None).alias('gpu_temp'),
+            F.col('gpu_value').alias('gpu_temp'),
         ) \
             .withColumn('cpu_temp', F.round(F.col('cpu_temp'), 1)) \
-            .withColumn("gpu_temp", F.lit(0))
+            .withColumn('gpu_temp', F.round(F.col('gpu_temp'), 1))
 
     def write_to_postgres(self, batch_df, _):
         # Set config to write transformed incoming data
