@@ -1,28 +1,26 @@
-from pyspark.sql import SparkSession
-from pyspark.sql import functions as F
-from pyspark.sql.functions import *
-from pyspark.sql.types import *
 import json
+
+from pyspark.sql import functions as F
+from pyspark.sql import SparkSession
+from pyspark.sql.dataframe import DataFrame
+
+
+def load_config(config_file: str) -> dict:
+    with open(config_file) as f:
+        return json.load(f)
 
 
 class Streaming_ETL:
-
-    def __init__(self, config_file):
-        
-        with open(config_file, 'r') as f:
-            config = json.load(f)
-
-        
+    def __init__(self, config: dict):
         self.spark_session_info = config['spark_session_info']
         self.kafka_information = config['kafka_information']
-        self.database_info = config['database_info'] 
+        self.database_info = config['database_info']
 
-
-        #Initialize SparkSession  
-        self.spark = SparkSession.builder\
-            .appName("Streaming_Devices_Data")\
-            .config("spark.jars", self.spark_session_info['postgres_jars_path'])\
-            .config("spark.jars.packages", self.spark_session_info['jars_package'])\
+        # Initialize SparkSession
+        self.spark = SparkSession.builder \
+            .appName("Streaming_Devices_Data") \
+            .config("spark.jars", self.spark_session_info['postgres_jars_path']) \
+            .config("spark.jars.packages", self.spark_session_info['jars_package']) \
             .getOrCreate()
 
 
@@ -144,5 +142,11 @@ class Streaming_ETL:
 
 
 if __name__ == "__main__":
-    process_data = Streaming_ETL(config_file="/path/to/config.json")
+    config_filepath = 'config.json'
+
+    config = load_config(config_file=config_filepath)
+    if not config:
+        raise ValueError(f'Config from {config_filepath} not fetched or parsed')
+
+    process_data = Streaming_ETL(config=config)
     process_data.start_streaming()
