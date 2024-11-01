@@ -52,21 +52,21 @@ class Streaming_ETL:
             # Extract valid CPU temperatures
             F.from_json(
                 F.expr("get_json_object(json_value, '$.cpu.thermal_zones')"), 'array<float>'
-            ).alias('thermal_zones'),
-            F.expr("get_json_object(json_value, '$.cpu.sensors.CPU')").cast('float').alias('sensors_cpu'),
+            ).alias('cpu_zones'),
+            F.expr("get_json_object(json_value, '$.cpu.sensors.CPU')").cast('float').alias('cpu_sensor'),
             F.from_json(
                 F.expr("get_json_object(json_value, '$.cpu.sensors')"), 'map<string,float>'
-            ).alias('sensors')
+            ).alias('cpu_any'),
         )
 
         # Fetch first valid CPU temperature
         transformed = transformed.withColumn('cpu_value', F.coalesce(
             F.when(
-                F.col('thermal_zones').isNotNull(),
-                F.expr('aggregate(thermal_zones, cast(0.0 as double), (acc, x) -> acc + x) / size(thermal_zones)')
+                F.col('cpu_zones').isNotNull(),
+                F.expr('aggregate(cpu_zones, cast(0.0 as double), (acc, x) -> acc + x) / size(cpu_zones)')
             ),
-            F.when(F.col('sensors_cpu').isNotNull(), F.col('sensors_cpu')),
-            F.when(F.col('sensors').isNotNull(), F.expr('element_at(map_values(sensors), 1)')),
+            F.when(F.col('cpu_sensor').isNotNull(), F.col('cpu_sensor')),
+            F.when(F.col('cpu_any').isNotNull(), F.expr('element_at(map_values(cpu_any), 1)')),
         ))
 
         return transformed.select(
