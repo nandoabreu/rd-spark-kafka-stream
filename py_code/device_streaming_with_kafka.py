@@ -84,7 +84,9 @@ class Streaming_ETL:
             F.col('collected_at'),
             F.col('cpu_value').alias('cpu_temp'),
             # F.lit(None).alias('gpu_temp'),
-        ).withColumn("gpu_temp", F.lit(0))
+        ) \
+            .withColumn('cpu_temp', F.round(F.col('cpu_temp'), 1)) \
+            .withColumn("gpu_temp", F.lit(0))
 
     def write_to_postgres(self, batch_df, _):
         # Set config to write transformed incoming data
