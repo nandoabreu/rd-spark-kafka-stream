@@ -46,12 +46,51 @@ class Streaming_ETL:
 
         return processed_df.fillna(0)
 
-        return processed_df
+    def transform(self, processed_df: DataFrame) -> DataFrame:
+        transformed = processed_df.select(
+            'key',
+            F.expr("get_json_object(json_value, '$.device')").cast('string').alias('device'),
+            F.expr("get_json_object(json_value, '$.collected_at')").cast('timestamp').alias('collected_at'),
 
-   
-    def Transform_erreduarte_device(self, processed_df):
-        
-        #Select and normalize data from device1 = erreduarte      
+            # Extract thermal_zones as an array of floats
+            F.from_json(
+                F.expr("get_json_object(json_value, '$.cpu.thermal_zones')"), 'array<float>'
+            ).alias('thermal_zones'),
+
+            # Extract sensors.CPU as a float
+            F.expr("get_json_object(json_value, '$.cpu.sensors.CPU')").cast('float').alias('sensors_cpu'),
+
+            # Extract sensors as a map of strings to floats
+            F.from_json(
+                F.expr("get_json_object(json_value, '$.cpu.sensors')"), 'map<string,float>'
+            ).alias('sensors')
+        )
+
+        transformed = transformed.withColumn('cpu_value', F.coalesce(
+            F.when(
+                F.col('thermal_zones').isNotNull(),
+                F.expr('aggregate(thermal_zones, cast(0.0 as double), (acc, x) -> acc + x) / size(thermal_zones)')
+            ),
+            F.when(
+                F.col('sensors_cpu').isNotNull(),
+                F.col('sensors_cpu')
+            ),
+            F.when(
+                F.col('sensors').isNotNull(),
+                F.expr('element_at(map_values(sensors), 1)')
+            ),
+        ))
+
+        return transformed.select(
+            F.col('key'),
+            F.col('device'),
+            F.col('collected_at'),
+            F.col('cpu_value').alias('cpu_temp'),
+            # F.lit(None).alias('gpu_temp'),
+        ).withColumn("gpu_temp", F.lit(0))
+
+    def Transform_erreduarte_device(self, processed_df: DataFrame) -> DataFrame:
+        # Select and normalize data from device1 = erreduarte
         transformed_df_key_1 = processed_df.select(
                                 "key",
                                 F.expr("get_json_object(json_value, '$.device')").cast("string").alias("device"),
@@ -122,6 +161,9 @@ class Streaming_ETL:
             .save()
 
     def start_streaming(self):
+        input_df = self.extract()
+        processed_df = self.process(input_df)
+        merged_df = self.transform(processed_df)
 
         input_df = self.Extract()
         processed_df = self.Process(input_df)
@@ -134,8 +176,13 @@ class Streaming_ETL:
                 .foreachBatch(self.write_to_postgres)\
                 .outputMode("append")\
                 .start()
+        # Write transformed dataframe (df_final) to Postgres
+        streaming_query = merged_df.writeStream \
+            .foreachBatch(self.write_to_postgres) \
+            .outputMode("append") \
+            .start()
 
-        streamingQuery.awaitTermination()
+        streaming_query.awaitTermination()
 
 
 if __name__ == "__main__":
