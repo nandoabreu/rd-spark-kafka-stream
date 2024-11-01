@@ -24,26 +24,27 @@ class Streaming_ETL:
             .getOrCreate()
 
 
-    def Extract(self):
-        #Read Kafka Stream and extract data schema
-        input_df = self.spark.readStream\
-                .format("kafka")\
-                .option("kafka.bootstrap.servers", self.kafka_information['host'])\
-                .option("subscribe", self.kafka_information['topic'])\
-                .load()
-        
-        return input_df
-    
-    
-    def Process(self, input_df):
+    def extract(self) -> DataFrame:
+        # Read Kafka Stream and extract data schema
+        input_df = self.spark.readStream \
+            .format("kafka") \
+            .option("kafka.bootstrap.servers", self.kafka_information['host']) \
+            .option("subscribe", self.kafka_information['topic']) \
+            .load()
 
-        #Select json values to further processing and normalization 
+        return input_df
+
+    def process(self, input_df: DataFrame) -> DataFrame:
+        # Select json values to further processing and normalization
         processed_df = input_df.select(
             F.col("key").cast("string").alias("key"),
             F.col("value").cast("string").alias("json_value")
             )
         
         processed_df = processed_df.fillna(0)
+        )
+
+        return processed_df.fillna(0)
 
         return processed_df
 
@@ -108,21 +109,17 @@ class Streaming_ETL:
 
         return merged_df
 
-
-    
-       
-    def write_to_postgres(self, batch_df, batch_id):
-        #Set config to write transformed incoming data   
-        batch_df.write\
-                .format("jdbc")\
-                .option("url", self.database_info['db_url'])\
-                .option("dbtable", self.database_info['table'])\
-                .option("user", self.database_info['user'])\
-                .option("password", self.database_info['password']) \
-                .option("driver", self.database_info['driver'])\
-                .mode(self.database_info['mode'])\
-                    .save()
-        
+    def write_to_postgres(self, batch_df, _):
+        # Set config to write transformed incoming data
+        batch_df.write \
+            .format("jdbc") \
+            .option("url", self.database_info['db_url']) \
+            .option("dbtable", self.database_info['table']) \
+            .option("user", self.database_info['user']) \
+            .option("password", self.database_info['password']) \
+            .option("driver", self.database_info['driver']) \
+            .mode(self.database_info['mode']) \
+            .save()
 
     def start_streaming(self):
 
