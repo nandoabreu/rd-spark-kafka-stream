@@ -39,9 +39,6 @@ class Streaming_ETL:
         processed_df = input_df.select(
             F.col("key").cast("string").alias("key"),
             F.col("value").cast("string").alias("json_value")
-            )
-        
-        processed_df = processed_df.fillna(0)
         )
 
         return processed_df.fillna(0)
@@ -89,65 +86,6 @@ class Streaming_ETL:
             # F.lit(None).alias('gpu_temp'),
         ).withColumn("gpu_temp", F.lit(0))
 
-    def Transform_erreduarte_device(self, processed_df: DataFrame) -> DataFrame:
-        # Select and normalize data from device1 = erreduarte
-        transformed_df_key_1 = processed_df.select(
-                                "key",
-                                F.expr("get_json_object(json_value, '$.device')").cast("string").alias("device"),
-                                F.expr("get_json_object(json_value, '$.collected_at')").cast("timestamp").alias("collected_at"),
-                                F.expr("get_json_object(json_value, '$.cpu.thermal_zones[0]')").cast("float").alias("thermal_zones_0"),
-                                F.expr("get_json_object(json_value, '$.cpu.thermal_zones[1]')").cast("float").alias("thermal_zones_1"),
-                                F.expr("get_json_object(json_value, '$.cpu.thermal_zones[2]')").cast("float").alias("thermal_zones_2"),
-                                F.expr("get_json_object(json_value, '$.cpu.thermal_zones[3]')").cast("float").alias("thermal_zones_3"),
-                                F.expr("get_json_object(json_value, '$.cpu.thermal_zones[4]')").cast("float").alias("thermal_zones_4"),
-                                F.expr("get_json_object(json_value, '$.cpu.thermal_zones[5]')").cast("float").alias("thermal_zones_5"),
-                                F.expr("get_json_object(json_value, '$.gpu.nvidia')").cast("float").alias("gpu_temp")
-                                ).where("key == 'erreduarte'")
-        
-        #Apply aggregations
-        df_erreduarte = transformed_df_key_1.select(
-                                F.col("key"),
-                                F.col("device"),
-                                F.col("collected_at"),
-                                ((F.col("thermal_zones_0") + F.col("thermal_zones_1") + F.col("thermal_zones_2") + F.col("thermal_zones_3") + F.col("thermal_zones_4") + 
-                                F.col("thermal_zones_5"))/6).alias("cpu_temp"),
-                                F.col("gpu_temp")
-                    )
-
-        return df_erreduarte
-    
-    
-    def Transform_3tplap_device(self, processed_df):
-
-        #Select and normalize data from device2 = 3tplap
-        transformed_df_key_2 = processed_df.select(
-                                "key",
-                                F.expr("get_json_object(json_value, '$.device')").cast("string").alias("device"),
-                                F.expr("get_json_object(json_value, '$.collected_at')").cast("timestamp").alias("collected_at"),
-                                F.expr("get_json_object(json_value, '$.cpu.sensors.Tctl')").cast("float").alias("cpu_0"),
-                                F.expr("get_json_object(json_value, '$.cpu.sensors.CPU')").cast("float").alias("cpu_1"),
-                                F.expr("get_json_object(json_value, '$.gpu.sensors.GPU')").cast("float").alias("GPU_0"),
-                                F.expr("get_json_object(json_value, '$.gpu.sensors.edge')").cast("float").alias("GPU_edge")
-                                ).where("key == '3tplap'")
-        #Apply aggregations
-        df_3tplap = transformed_df_key_2.select(
-                                F.col("key"),
-                                F.col("device"),
-                                F.col("collected_at"),
-                                ((F.col("cpu_0") + F.col("cpu_1"))/2).alias("cpu_temp"),
-                                ((F.col("GPU_0") + F.col("GPU_edge"))/2).alias("gpu_temp")
-                                )
-        return df_3tplap
-    
-    
-    
-    def merge_data(self, df_erreduarte, df_3tplap):
-
-        #Merge both normalized DFs into a single one
-        merged_df = df_erreduarte.union(df_3tplap)
-
-        return merged_df
-
     def write_to_postgres(self, batch_df, _):
         # Set config to write transformed incoming data
         batch_df.write \
@@ -165,17 +103,6 @@ class Streaming_ETL:
         processed_df = self.process(input_df)
         merged_df = self.transform(processed_df)
 
-        input_df = self.Extract()
-        processed_df = self.Process(input_df)
-        df_erreduarte = self.Transform_erreduarte_device(processed_df)
-        df_3tplap = self.Transform_3tplap_device(processed_df)
-        merged_df = self.merge_data(df_erreduarte, df_3tplap)
-
-        #Write transformed dataframe (df_final) to Postgres   
-        streamingQuery = merged_df.writeStream\
-                .foreachBatch(self.write_to_postgres)\
-                .outputMode("append")\
-                .start()
         # Write transformed dataframe (df_final) to Postgres
         streaming_query = merged_df.writeStream \
             .foreachBatch(self.write_to_postgres) \
