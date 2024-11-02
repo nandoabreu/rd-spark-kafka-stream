@@ -1,0 +1,60 @@
+{
+  "device": "nandoLap",
+  "collected_at": "2024-11-01 00:00:01 +00:00",
+  "cpu": {
+    "sensors": {
+      "Package id 0": 46.0
+    },
+    "thermal_zones": [
+      20.0,
+      29.05,
+      31.05,
+      28.05,
+      30.0,
+      33.05,
+      31.0,
+      35.0
+    ]
+  },
+  "gpu": {
+    "nvidia": 28.0
+  },
+  "net": {
+    "wlp0s20f3": {
+      "in": 35393.4,
+      "out": 9288.0
+    }
+  },
+  "storage": {
+    "/": {
+      "free": 3519.4,
+      "total": 19986.6,
+      "used": 15427.1
+    },
+    "/boot": {
+      "free": 360.6,
+      "total": 487.2,
+      "used": 90.8
+    },
+    "/var": {
+      "free": 5587.8,
+      "total": 7963.5,
+      "used": 1950.1
+    },
+    "/home": {
+      "free": 98863.1,
+      "total": 206396.9,
+      "used": 96978.3
+    },
+    "/boot/efi": {
+      "free": 103.6,
+      "total": 119.1,
+      "used": 15.5
+    },
+    "/media/nando/rPi": {
+      "free": 28247.2,
+      "total": 29784.9,
+      "used": 0.0
+    }
+  }
+}
