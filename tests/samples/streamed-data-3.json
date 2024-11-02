@@ -1,0 +1,52 @@
+{
+  "device": "3tplap",
+  "collected_at": "2024-11-01 00:00:01 +00:00",
+  "cpu": {
+    "sensors": {
+      "Tctl": 36.6,
+      "CPU": 36.0
+    }
+  },
+  "gpu": {
+    "sensors": {
+      "GPU": 0.0,
+      "edge": 35.0
+    }
+  },
+  "net": {
+    "enp2s0": {
+      "in": 0.0,
+      "out": 0.0
+    },
+    "wlp3s0": {
+      "in": 476177.0,
+      "out": 664974.2
+    },
+    "ppp0": {
+      "in": 5.1,
+      "out": 0.1
+    }
+  },
+  "storage": {
+    "/": {
+      "free": 80647.1,
+      "total": 100220.9,
+      "used": 14437.8
+    },
+    "/boot": {
+      "free": 1574.1,
+      "total": 1945.9,
+      "used": 253.3
+    },
+    "/boot/efi": {
+      "free": 1066.8,
+      "total": 1072.9,
+      "used": 6.1
+    },
+    "/var/lib/containers/storage/overlay": {
+      "free": 80647.1,
+      "total": 100220.9,
+      "used": 14437.8
+    }
+  }
+}

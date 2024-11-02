@@ -62,9 +62,25 @@ This App handles the data flow between Kafka and Spark, between Spark and Postgr
 and between PostgreSQL and Grafana. To enable and run this App, Python requirements must be installed
 and connections must be set (see [config.json](#configjson) in this document).
 
-It is recommended to use a Python virtual environment in the local system. The following 
-Makefile command can ease setting the local environment:
+### Requirements
+
+- [postgresql-42.7.2.jar](https://jdbc.postgresql.org/download/postgresql-42.7.2.jar)
+  - This Spark requirement must be downloaded and its path set in [config.json](config.json)
+
+### Set-up
+
+It is recommended to use a Python virtual environment in the local system. The following
+Makefile command can set the local environment:
 
 ```shell
 make env-setup
+```
+
+## Run the pipeline
+
+To start consuming and storing data, activate the env and run the script.
+The following Makefile command will make that happen:
+
+```shell
+make start-pipeline
 ```
