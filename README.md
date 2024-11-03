@@ -1,11 +1,12 @@
 # Kafka-Based CPU/GPU Temperature Streaming
 
 This project demonstrates a complete data streaming pipeline that reads real-time CPU and GPU temperature data streamed from remote devices.
-The streaming is done by [Fernando Abreu's **telemetry-publisher**](https://github.com/nandoabreu/telemetry-publisher) repo.
+The streaming is done by the [telemetry-publisher](https://github.com/nandoabreu/telemetry-publisher) project.
 
-The streaming data is consumed from **Apache Kafka** and processed with **Apache Spark Streaming**.
+The streaming data is consumed from **Apache Kafka** and processed with **Apache Spark** using pySpark.
 The pipeline writes the processed data to **PostgreSQL**, which is then visualized using **Grafana**
 for real-time dashboard insights.
+
 
 ## Project Overview
 
@@ -49,12 +50,14 @@ Or at the snapshot here presented.
 > However, it effectively showcases the current configuration and design of the dashboard,
 > demonstrating how the CPU temperature metrics are visualized.
 
+
 ## Process Flow
 
 1. **Extract**: Kafka streams CPU and GPU temperature records from the devices.
 2. **Transform**: Spark Streaming processes and cleans the incoming data.
 3. **Load**: The transformed data is stored in PostgreSQL.
 4. **Visualize**: Grafana generates real-time visual dashboards from the stored data.
+
 
 ## Local install
 
@@ -76,11 +79,15 @@ Makefile command can set the local environment:
 make env-setup
 ```
 
+
 ## Run the pipeline
 
 To start consuming and storing data, activate the env and run the script.
 The following Makefile command will make that happen:
 
 ```shell
-make start-pipeline
+nohup make start-pipeline &
+
+# To kill this later, run:
+# kill $(ps -ef | grep start-pipeline | head -1 | awk '{ print $2 }')
 ```

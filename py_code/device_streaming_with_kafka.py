@@ -3,11 +3,49 @@ import json
 from pyspark.sql import functions as F
 from pyspark.sql import SparkSession
 from pyspark.sql.dataframe import DataFrame
+from pyspark.sql.types import StringType
 
 
 def load_config(config_file: str) -> dict:
     with open(config_file) as f:
         return json.load(f)
+
+
+def normalize_network_data(raw_data: (dict, str)) -> str:
+    # PySpark UDFs cannot directly reference instance methods or class attributes that rely on the SparkContext
+    normalized = {}
+
+    if not isinstance(raw_data, dict):
+        raw_data = json.loads(raw_data)
+
+    # print(f'{raw_data=} ({type(raw_data)})')  # todo: debug-log
+    for device, metrics in raw_data.items():
+        if not isinstance(metrics, dict):
+            # Unknown data - todo: log this decision
+            continue
+
+        inbound = metrics.get('in', 0.0)
+        outbound = metrics.get('out', 0.0)
+
+        if not (inbound or outbound):
+            continue
+
+        if any([device.startswith(prefix) for prefix in ('eth', 'enp')]):
+            normalized['cxn'] = 'eth'
+
+        elif any([device.startswith(prefix) for prefix in ('wlan', 'wlp')]):
+            normalized['cxn'] = 'wlan'
+
+        else:
+            # Do not set if not eth or wlan
+            continue
+
+        if len(normalized) == 1:
+            # cnx was set, but not the values until this loop
+            normalized['in'] = inbound
+            normalized['out'] = outbound
+
+    return json.dumps(normalized or raw_data)  # Return raw if not normalized
 
 
 class Streaming_ETL:
@@ -51,19 +89,25 @@ class Streaming_ETL:
 
             # Extract valid CPU temperatures
             F.from_json(
-                F.expr("get_json_object(json_value, '$.cpu.thermal_zones')"), 'array<float>'
+                F.expr("get_json_object(json_value, '$.cpu.thermal_zones')"),
+                'array<float>',
             ).alias('cpu_zones'),
             F.expr("get_json_object(json_value, '$.cpu.sensors.CPU')").cast('float').alias('cpu_sensor'),
             F.from_json(
-                F.expr("get_json_object(json_value, '$.cpu.sensors')"), 'map<string,float>'
+                F.expr("get_json_object(json_value, '$.cpu.sensors')"),
+                'map<string,float>',
             ).alias('cpu_any'),
 
             # Extract valid GPU temperatures
             F.expr("get_json_object(json_value, '$.gpu.nvidia')").cast('float').alias('gpu_nvidia'),
             F.expr("get_json_object(json_value, '$.gpu.sensors.edge')").cast('float').alias('gpu_edge'),
             F.from_json(
-                F.expr("get_json_object(json_value, '$.gpu.sensors')"), 'map<string,float>'
+                F.expr("get_json_object(json_value, '$.gpu.sensors')"),
+                'map<string,float>',
             ).alias('gpu_any'),
+
+            # Add not-yet-normalized network data
+            F.expr("get_json_object(json_value, '$.net')").alias('net_data'),
         )
 
         # Fetch first valid CPU temperature
@@ -83,15 +127,20 @@ class Streaming_ETL:
             F.when(F.col('gpu_any').isNotNull(), F.expr('element_at(map_values(gpu_any), 1)')),
         ))
 
+        # Normalize network data
+        net_norm_udf = F.udf(normalize_network_data, StringType())
+
         return transformed.select(
             F.col('key'),
             F.col('device'),
             F.col('collected_at'),
             F.col('cpu_value').alias('cpu_temp'),
             F.col('gpu_value').alias('gpu_temp'),
+            F.col('net_data'),
         ) \
             .withColumn('cpu_temp', F.round(F.col('cpu_temp'), 1)) \
-            .withColumn('gpu_temp', F.round(F.col('gpu_temp'), 1))
+            .withColumn('gpu_temp', F.round(F.col('gpu_temp'), 1)) \
+            .withColumn('net_data', net_norm_udf(F.col('net_data')))
 
     def write_to_postgres(self, batch_df, _):
         # Set config to write transformed incoming data
@@ -108,10 +157,10 @@ class Streaming_ETL:
     def start_streaming(self):
         input_df = self.extract()
         processed_df = self.process(input_df)
-        merged_df = self.transform(processed_df)
+        transformed_df = self.transform(processed_df)
 
         # Write transformed dataframe (df_final) to Postgres
-        streaming_query = merged_df.writeStream \
+        streaming_query = transformed_df.writeStream \
             .foreachBatch(self.write_to_postgres) \
             .outputMode("append") \
             .start()
