@@ -64,6 +64,9 @@ class Streaming_ETL:
             F.from_json(
                 F.expr("get_json_object(json_value, '$.gpu.sensors')"), 'map<string,float>'
             ).alias('gpu_any'),
+
+            # Add not-yet-normalized network data
+            F.expr("get_json_object(json_value, '$.net')").alias('net_data'),
         )
 
         # Fetch first valid CPU temperature
