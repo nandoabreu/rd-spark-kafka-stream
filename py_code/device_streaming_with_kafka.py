@@ -89,18 +89,21 @@ class Streaming_ETL:
 
             # Extract valid CPU temperatures
             F.from_json(
-                F.expr("get_json_object(json_value, '$.cpu.thermal_zones')"), 'array<float>'
+                F.expr("get_json_object(json_value, '$.cpu.thermal_zones')"),
+                'array<float>',
             ).alias('cpu_zones'),
             F.expr("get_json_object(json_value, '$.cpu.sensors.CPU')").cast('float').alias('cpu_sensor'),
             F.from_json(
-                F.expr("get_json_object(json_value, '$.cpu.sensors')"), 'map<string,float>'
+                F.expr("get_json_object(json_value, '$.cpu.sensors')"),
+                'map<string,float>',
             ).alias('cpu_any'),
 
             # Extract valid GPU temperatures
             F.expr("get_json_object(json_value, '$.gpu.nvidia')").cast('float').alias('gpu_nvidia'),
             F.expr("get_json_object(json_value, '$.gpu.sensors.edge')").cast('float').alias('gpu_edge'),
             F.from_json(
-                F.expr("get_json_object(json_value, '$.gpu.sensors')"), 'map<string,float>'
+                F.expr("get_json_object(json_value, '$.gpu.sensors')"),
+                'map<string,float>',
             ).alias('gpu_any'),
 
             # Add not-yet-normalized network data
@@ -154,10 +157,10 @@ class Streaming_ETL:
     def start_streaming(self):
         input_df = self.extract()
         processed_df = self.process(input_df)
-        merged_df = self.transform(processed_df)
+        transformed_df = self.transform(processed_df)
 
         # Write transformed dataframe (df_final) to Postgres
-        streaming_query = merged_df.writeStream \
+        streaming_query = transformed_df.writeStream \
             .foreachBatch(self.write_to_postgres) \
             .outputMode("append") \
             .start()
