@@ -3,6 +3,7 @@ import json
 from pyspark.sql import functions as F
 from pyspark.sql import SparkSession
 from pyspark.sql.dataframe import DataFrame
+from pyspark.sql.types import StringType
 
 
 def load_config(config_file: str) -> dict:
@@ -123,15 +124,20 @@ class Streaming_ETL:
             F.when(F.col('gpu_any').isNotNull(), F.expr('element_at(map_values(gpu_any), 1)')),
         ))
 
+        # Normalize network data
+        net_norm_udf = F.udf(normalize_network_data, StringType())
+
         return transformed.select(
             F.col('key'),
             F.col('device'),
             F.col('collected_at'),
             F.col('cpu_value').alias('cpu_temp'),
             F.col('gpu_value').alias('gpu_temp'),
+            F.col('net_data'),
         ) \
             .withColumn('cpu_temp', F.round(F.col('cpu_temp'), 1)) \
-            .withColumn('gpu_temp', F.round(F.col('gpu_temp'), 1))
+            .withColumn('gpu_temp', F.round(F.col('gpu_temp'), 1)) \
+            .withColumn('net_data', net_norm_udf(F.col('net_data')))
 
     def write_to_postgres(self, batch_df, _):
         # Set config to write transformed incoming data
