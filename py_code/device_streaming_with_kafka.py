@@ -10,6 +10,43 @@ def load_config(config_file: str) -> dict:
         return json.load(f)
 
 
+def normalize_network_data(raw_data: (dict, str)) -> str:
+    # PySpark UDFs cannot directly reference instance methods or class attributes that rely on the SparkContext
+    normalized = {}
+
+    if not isinstance(raw_data, dict):
+        raw_data = json.loads(raw_data)
+
+    # print(f'{raw_data=} ({type(raw_data)})')  # todo: debug-log
+    for device, metrics in raw_data.items():
+        if not isinstance(metrics, dict):
+            # Unknown data - todo: log this decision
+            continue
+
+        inbound = metrics.get('in', 0.0)
+        outbound = metrics.get('out', 0.0)
+
+        if not (inbound or outbound):
+            continue
+
+        if any([device.startswith(prefix) for prefix in ('eth', 'enp')]):
+            normalized['cxn'] = 'eth'
+
+        elif any([device.startswith(prefix) for prefix in ('wlan', 'wlp')]):
+            normalized['cxn'] = 'wlan'
+
+        else:
+            # Do not set if not eth or wlan
+            continue
+
+        if len(normalized) == 1:
+            # cnx was set, but not the values until this loop
+            normalized['in'] = inbound
+            normalized['out'] = outbound
+
+    return json.dumps(normalized or raw_data)  # Return raw if not normalized
+
+
 class Streaming_ETL:
     def __init__(self, config: dict):
         self.spark_session_info = config['spark_session_info']
